@@ -4,19 +4,41 @@
   <meta charset="UTF-8" />
   <title>Vosk Browser Chatbot</title>
   <style>
-    /* Basic styling as before */
-    body { font-family: Arial, sans-serif; margin: 2em; background-color: #f2f2f2; color: #333; }
-    h1 { text-align: center; }
-    #mic-btn {
-      display: block; margin: 20px auto; background-color: #007BFF;
-      border: none; border-radius: 50%; color: white; font-size: 32px;
-      width: 70px; height: 70px; cursor: pointer; transition: background-color 0.3s ease;
+    /* Basic styling */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+      background-color: #f2f2f2;
+      color: #333;
     }
-    #mic-btn.recording { background-color: #dc3545; }
+    h1 {
+      text-align: center;
+    }
+    #mic-btn {
+      display: block;
+      margin: 20px auto;
+      background-color: #007BFF;
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 32px;
+      width: 70px;
+      height: 70px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #mic-btn.recording {
+      background-color: #dc3545;
+    }
     #transcript {
-      margin: 20px auto; max-width: 600px; padding: 15px;
-      background-color: #fff; border: 1px solid #ccc; border-radius: 4px;
-      min-height: 100px; text-align: center;
+      margin: 20px auto;
+      max-width: 600px;
+      padding: 15px;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      min-height: 100px;
+      text-align: center;
     }
   </style>
 </head>
@@ -39,19 +61,18 @@
 
     // Initialize the recognizer using the local model folder.
     async function initRecognizer() {
-      // Use the relative path to your locally hosted model folder.
-      const modelUrl = 'vosk-model-small-en-us-0.15/';
+      const modelUrl = 'vosk-model-small-en-us-0.15/'; // Ensure this path is correct
       transcriptDiv.innerHTML = 'Initializing recognizer...';
       try {
         recognizer = await Vosk.createRecognizer({
-          workerUrl: "https://unpkg.com/vosk-browser/dist/worker.js",
+          workerUrl: 'https://unpkg.com/vosk-browser/dist/worker.js',
           modelUrl: modelUrl,
-          sampleRate: 16000
+          sampleRate: 16000,
         });
         transcriptDiv.innerHTML = 'Recognizer ready. Click the mic to start recording.';
       } catch (err) {
-        transcriptDiv.innerHTML = 'Error initializing recognizer.';
-        console.error(err);
+        transcriptDiv.innerHTML = 'Error initializing recognizer. Check console for details.';
+        console.error('Recognizer initialization error:', err);
       }
     }
     initRecognizer();
@@ -68,30 +89,41 @@
       isRecording = true;
       micBtn.classList.add('recording');
       transcriptDiv.innerHTML = 'Recording...';
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunks.push(e.data);
-      };
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop());
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-        const rawData = audioBuffer.getChannelData(0);
-        try {
-          const result = await recognizer.recognize(rawData);
-          transcriptDiv.innerHTML = result.text || 'No transcript available.';
-        } catch (err) {
-          transcriptDiv.innerHTML = 'Error during recognition.';
-          console.error(err);
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-      };
-      mediaRecorder.start();
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const arrayBuffer = await audioBlob.arrayBuffer();
+          const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          const rawData = audioBuffer.getChannelData(0);
+          try {
+            const result = await recognizer.recognize(rawData);
+            transcriptDiv.innerHTML = result.text || 'No transcript available.';
+          } catch (err) {
+            transcriptDiv.innerHTML = 'Error during recognition. Check console for details.';
+            console.error('Recognition error:', err);
+          }
+        };
+
+        mediaRecorder.start();
+      } catch (err) {
+        transcriptDiv.innerHTML = 'Error accessing microphone. Ensure you have granted permission.';
+        console.error('Microphone access error:', err);
+        isRecording = false;
+        micBtn.classList.remove('recording');
+      }
     }
 
     function stopRecording() {
